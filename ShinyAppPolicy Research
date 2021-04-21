@@ -1,0 +1,83 @@
+#
+# This is a Shiny web application. You can run the application by clicking
+# the 'Run App' button above.
+#
+# Find out more about building applications with Shiny here:
+#
+#    http://shiny.rstudio.com/
+#
+
+#Load in Data
+library(shiny)
+library(tidyverse)
+library(kableExtra)
+library(stringr)
+
+
+gss_df <- read_csv("C:/Users/Dahvier Alston/Desktop/Rstudio files/Alston---POSC-3410/gss_df.csv")
+#Import in gss_df.Rdata
+
+analysis_df <- gss_df %>% 
+  filter(YEAR >=1970 & !is.na(PARTYID) & !is.na(INTSPACE) & (PARTYID == "Strong democrat" | PARTYID == "Not str democrat" | PARTYID == "Independent"
+                                                             | PARTYID == "Not str republican" | PARTYID == "Ind,near dem"| PARTYID == "Ind,near rep"| PARTYID == "Other party"| PARTYID == "Strong republican") & (INTSPACE == "Very interested" | INTSPACE == "Moderately interested" | INTSPACE == "Not at all interested")) %>% 
+  select(YEAR,INTSPACE,PARTYID,WTSSALL) %>% 
+  group_by(YEAR,PARTYID,INTSPACE) %>% 
+  summarise(count = sum(WTSSALL))
+
+analysis_df <- analysis_df %>% 
+  mutate(INTSPACE = factor(INTSPACE))
+
+add_rows <-tribble(
+  ~PARTYID, ~INTSPACE, ~count,
+  "democrat", "Not at all interested", 1,
+  "republican", "Not at all interested", 1,
+  "independent", "Not at all interested", 1)
+
+shiny_dfParty <- analysis_df
+
+  # Define UI for application that draws a histogram
+ui <- fluidPage(
+
+    # Application title panel
+    titlePanel("Policy Research into the Correlation Between Political Party Affiliation and Interest in Space Exploration"),
+
+    # Sidebar controls
+    sidebarLayout(
+        sidebarPanel(
+            sliderInput("years",
+                        "Select Years for Analysis",
+                        min = min(shiny_dfParty$YEAR),
+                        max = max(shiny_dfParty$YEAR),
+                        value =c(min(shiny_dfParty$YEAR),max(shiny_dfParty$YEAR)),
+                        sep = "")
+        ,
+        checkboxGroupInput(
+            "political_party",
+            "Select the Party IDs you want to display",
+            unique(shiny_dfParty$PARTYID),
+            c("Strong republican", "Strong democrat")
+        )),
+
+        # Show a plot of the generated distribution
+        mainPanel(
+           h3("Party ID x Interest in Space"),
+           plotOutput("gssplot")
+        )
+    )
+)
+
+# Define server logic required to draw a histogram
+server <- function(input, output) {
+
+    output$gssplot <- renderPlot({
+        data <- shiny_dfParty %>% 
+            filter(YEAR>= input$years[1] & YEAR<=input$years[2] & PARTYID %in% input$political_party)
+        data %>% 
+            ggplot(aes(x= PARTYID, y= count, fill= INTSPACE))+
+            geom_bar(stat='identity')
+
+    })
+}
+
+# Run the application 
+shinyApp(ui = ui, server = server)
